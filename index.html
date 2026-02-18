@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ottimate Grocery ROI Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --ott-fresh: #03C9A3; --ott-ocean: #00426E; --ott-dark: #123044; --ott-white: #FFFFFF;
+            --ott-cta: #747BFF; --ott-cta-hover: #5f65e6; --ott-fresh-soft: #e6faf5; --ott-ocean-light: #e8f4fb;
+            --ott-warm: #e85d3a; --ott-warm-soft: #fde8e2; --ott-surface: #f5f7fa; --ott-card: #ffffff;
+            --ott-border: #dfe4ea; --ott-text: #123044; --ott-text-secondary: #4a6178; --ott-text-muted: #8498ad;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Hanken Grotesk', sans-serif; background: var(--ott-surface); color: var(--ott-text); min-height: 100vh; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .app-header { background: linear-gradient(135deg, var(--ott-dark) 0%, var(--ott-ocean) 100%); padding: 1.25rem 2rem; position: sticky; top: 0; z-index: 50; box-shadow: 0 4px 20px rgba(0,66,110,0.25); }
+        .card { background: var(--ott-card); border: 1px solid var(--ott-border); border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03); }
+        .input-label { display: block; font-size: 0.7rem; font-weight: 600; color: var(--ott-text-secondary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.3rem; }
+        .input-field { width: 100%; padding: 0.55rem 0.8rem; border: 1.5px solid var(--ott-border); border-radius: 10px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--ott-text); background: var(--ott-surface); transition: all 0.2s; -moz-appearance: textfield; }
+        .input-field::-webkit-inner-spin-button, .input-field::-webkit-outer-spin-button { -webkit-appearance: none; }
+        .input-field:focus { outline: none; border-color: var(--ott-ocean); box-shadow: 0 0 0 3px rgba(0,66,110,0.12); background: white; }
+        .input-field::placeholder { color: var(--ott-text-muted); font-family: 'Hanken Grotesk', sans-serif; font-size: 0.8rem; }
+        .input-field:disabled { opacity: 0.4; cursor: not-allowed; }
+        .input-prefix { position: absolute; left: 0.8rem; top: 50%; transform: translateY(-50%); color: var(--ott-text-muted); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; pointer-events: none; }
+        .input-suffix { position: absolute; right: 0.8rem; top: 50%; transform: translateY(-50%); color: var(--ott-text-muted); font-size: 0.7rem; pointer-events: none; }
+        .input-with-prefix { padding-left: 1.4rem; }
+        .input-with-suffix { padding-right: 2.4rem; }
+        .benchmark { display: inline-block; font-size: 0.65rem; color: var(--ott-text-muted); background: var(--ott-surface); padding: 0.12rem 0.45rem; border-radius: 5px; margin-top: 0.2rem; }
+
+        /* Path selector */
+        .path-btn { padding: 0.6rem 1rem; border-radius: 10px; font-size: 0.78rem; font-weight: 600; border: 1.5px solid var(--ott-border); background: white; color: var(--ott-text-secondary); cursor: pointer; transition: all 0.2s; text-align: left; }
+        .path-btn:hover { border-color: var(--ott-ocean); }
+        .path-btn.active { border-color: var(--ott-ocean); background: var(--ott-ocean); color: white; box-shadow: 0 2px 8px rgba(0,66,110,0.2); }
+        .path-btn .path-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.6; }
+        .path-btn .path-name { font-weight: 700; margin-top: 2px; }
+        .path-btn .path-formulas { font-size: 0.62rem; opacity: 0.5; margin-top: 2px; }
+
+        /* Accordion */
+        .accordion { border: 1px solid var(--ott-border); border-radius: 14px; overflow: hidden; background: white; margin-bottom: 0.85rem; transition: all 0.2s; }
+        .accordion:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .accordion.active { border-color: var(--ott-ocean); box-shadow: 0 2px 12px rgba(0,66,110,0.08); }
+        .accordion.inactive { opacity: 0.4; pointer-events: none; }
+        .accordion.inactive .accordion-header { cursor: default; }
+        .accordion-header { display: flex; align-items: center; gap: 0.75rem; padding: 0.85rem 1.25rem; cursor: pointer; user-select: none; transition: background 0.15s; }
+        .accordion-header:hover { background: var(--ott-surface); }
+        .accordion-toggle { width: 18px; height: 18px; border-radius: 5px; background: var(--ott-surface); border: 1.5px solid var(--ott-border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s; }
+        .accordion.active .accordion-toggle { background: var(--ott-ocean); border-color: var(--ott-ocean); }
+        .accordion-toggle svg { transition: transform 0.2s; }
+        .accordion.active .accordion-toggle svg { transform: rotate(180deg); }
+        .accordion-number { width: 26px; height: 26px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; flex-shrink: 0; }
+        .accordion-title { flex: 1; }
+        .accordion-title h3 { font-size: 0.85rem; font-weight: 700; color: var(--ott-text); }
+        .accordion-title p { font-size: 0.7rem; color: var(--ott-text-muted); margin-top: 1px; }
+        .accordion-result { font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; font-weight: 700; color: var(--ott-fresh); white-space: nowrap; margin-right: 0.25rem; }
+        .accordion-body { max-height: 0; overflow: hidden; transition: max-height 0.35s ease-out; }
+        .accordion.active .accordion-body { max-height: 3000px; }
+        .accordion-content { padding: 0 1.25rem 1.25rem; border-top: 1px solid var(--ott-border); }
+        .inactive-note { font-size: 0.72rem; color: var(--ott-text-muted); font-style: italic; padding: 0 1.25rem 0.75rem; }
+
+        /* Results */
+        .result-mini { padding: 0.6rem 0.75rem; background: var(--ott-surface); border-radius: 8px; }
+        .result-mini .rm-label { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; color: var(--ott-text-muted); }
+        .result-mini .rm-value { font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; font-weight: 600; color: var(--ott-text); }
+        .result-highlight { padding: 0.7rem 0.85rem; background: var(--ott-fresh-soft); border-radius: 8px; }
+        .result-highlight .rh-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ott-ocean); margin-bottom: 0.15rem; }
+        .result-highlight .rh-value { font-family: 'JetBrains Mono', monospace; font-size: 1.2rem; font-weight: 700; color: var(--ott-dark); }
+
+        /* Hero */
+        .hero-stat { background: linear-gradient(135deg, var(--ott-dark), var(--ott-ocean)); border-radius: 18px; padding: 1.75rem; color: white; text-align: center; position: relative; overflow: hidden; }
+        .hero-stat::before { content: ''; position: absolute; top: -50%; right: -30%; width: 280px; height: 280px; border-radius: 50%; background: rgba(3,201,163,0.1); }
+        .hero-stat .label { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; opacity: 0.6; margin-bottom: 0.3rem; }
+        .hero-stat .value { font-family: 'JetBrains Mono', monospace; font-size: 2.2rem; font-weight: 700; line-height: 1; }
+        .hero-stat .sub { font-size: 0.75rem; opacity: 0.5; margin-top: 0.2rem; }
+
+        .summary-row { display: flex; align-items: center; padding: 0.6rem 0; border-bottom: 1px solid var(--ott-border); }
+        .summary-row:last-child { border-bottom: none; }
+        .summary-row .s-label { flex: 1; font-size: 0.8rem; color: var(--ott-text-secondary); }
+        .summary-row .s-value { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 600; color: var(--ott-text); }
+        .summary-row.total-row { border-top: 2px solid var(--ott-ocean); border-bottom: none; padding-top: 0.75rem; margin-top: 0.2rem; }
+        .summary-row.total-row .s-label { font-weight: 700; color: var(--ott-text); }
+        .summary-row.total-row .s-value { font-size: 1rem; font-weight: 700; color: var(--ott-fresh); }
+
+        .inaction-banner { background: linear-gradient(135deg, var(--ott-warm-soft), #fff5f0); border: 1.5px solid #f0c4b8; border-radius: 12px; padding: 1rem 1.25rem; display: flex; align-items: center; gap: 1rem; }
+        .inaction-number { font-family: 'JetBrains Mono', monospace; font-size: 1.5rem; font-weight: 700; color: var(--ott-warm); white-space: nowrap; }
+
+        /* Multiplier box */
+        .multiplier-box { background: linear-gradient(135deg, #0a1628, var(--ott-dark)); border-radius: 14px; padding: 1.25rem; color: white; text-align: center; }
+        .multiplier-box .label { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; opacity: 0.5; }
+        .multiplier-box .value { font-family: 'JetBrains Mono', monospace; font-size: 1.5rem; font-weight: 700; color: var(--ott-fresh); margin: 0.3rem 0; }
+        .multiplier-box .sub { font-size: 0.7rem; opacity: 0.6; }
+
+        .chart-container { position: relative; height: 220px; width: 100%; }
+
+        /* Year toggle */
+        .year-toggle { display: flex; gap: 2px; background: var(--ott-surface); border-radius: 8px; padding: 2px; }
+        .year-toggle button { padding: 0.35rem 0.85rem; border-radius: 6px; border: none; font-size: 0.72rem; font-weight: 600; cursor: pointer; background: transparent; color: var(--ott-text-muted); transition: all 0.2s; }
+        .year-toggle button.active { background: white; color: var(--ott-ocean); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+        /* Half mode */
+        .half-badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 5px; font-size: 0.6rem; font-weight: 700; background: #fef3c7; color: #92400e; margin-left: 0.5rem; }
+
+        @media (max-width: 1100px) { .main-grid { grid-template-columns: 1fr !important; } }
+        @media (max-width: 640px) { .path-grid { grid-template-columns: 1fr !important; } .inaction-banner { flex-direction: column; text-align: center; } }
+        @media print { .app-header { position: static; } .no-print { display: none !important; } body { background: white; } .card, .accordion { break-inside: avoid; box-shadow: none; } }
+    </style>
+</head>
+<body>
+    <header class="app-header">
+        <div style="max-width: 1240px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <svg viewBox="0 0 2800 1000" style="height: 32px; width: auto;" xmlns="http://www.w3.org/2000/svg"><defs><style>.lo0{fill-rule:evenodd}.lo0,.lo1{fill:#fff}</style></defs><g><path class="lo0" d="M899.5,522.8c0-56.5,46.7-105.7,100.3-105.7s99.9,49.3,99.9,105.7-46.7,105.4-99.9,105.4-100.3-49.3-100.3-105.4ZM1062,522.8c0-42.8-27.3-72.6-62.2-72.6s-62.5,29.9-62.5,72.6,27.3,72.6,62.5,72.6,62.2-30.2,62.2-72.6ZM1141.4,546.9v-94.9h-37.7v-26.3h5c32.3,0,39.5-16.5,39.5-42.4v-25.2h5.4c13.3,0,19.4-.4,24.8-2.9v66.5h75.8v30.2h-75.8v100.3c0,31.3,14.7,43.9,32.7,43.9s27-7.9,34.5-19.8l25.2,18c-10.8,21.6-33.4,33.8-59.7,33.8-42.8,0-69.7-32-69.7-81.3ZM1308.9,546.9v-94.9h-37.7v-26.3h5c32.3,0,39.5-16.5,39.5-42.4v-25.2h5.4c13.3,0,19.1-.4,24.4-2.9v66.5h75.8v30.2h-75.8v100.3c0,31.3,15.1,43.9,32.7,43.9s27-7.9,34.9-19.8l24.8,18c-10.4,21.6-33.1,33.8-59.7,33.8-42.4,0-69.4-32-69.4-81.3ZM1461.6,421.7h12.2c13.6,0,19.4-.4,24.8-2.5v204.3h-37v-201.8ZM1532,421.7h11.9c13.7,0,19.4-.7,24.8-2.9v43.5c10.8-28.1,34.9-45.3,69.7-45.3s54.3,17.6,61.8,48.2c10.8-29.9,36.3-48.2,72.6-48.2s65.1,28.1,65.1,73.4v132.7h-36.7v-127c0-32.4-12.6-45.3-39.2-45.3s-58.6,23.4-58.6,65.1v107.2h-37v-127c0-32.4-12.6-45.3-38.8-45.3s-58.9,23.4-58.9,65.1v107.2h-36.7v-201.4ZM1866.6,573.1c0-45,43.1-54.7,83.7-59.3,31.3-4,42.8-5.4,42.8-29.1s-12.6-36-40.6-36-42.8,9.7-51.4,28.1l-25.5-16.2c12.6-28.1,43.1-43.5,81.2-43.5s73.3,24.5,73.3,74.4v132h-35.9v-34.9c-10.4,25.9-33.4,39.6-65,39.6s-62.5-19.8-62.5-55ZM1993.8,539v-17.6c-6.8,11.9-17.2,14.4-39.2,17.3-25.2,3.2-52.1,6.1-52.1,32.4s10.8,29.1,34.5,29.1,56.8-18.3,56.8-61.1Z"/><path class="lo0" d="M2076.2,546.9v-94.9h-37.7v-26.3h4.7c32.3,0,39.5-16.5,39.5-42.4v-25.2h5.4c13.7,0,19.4-.4,24.8-2.9v66.5h75.8v30.2h-75.8v100.3c0,31.3,14.7,43.9,32.7,43.9s26.9-7.9,34.5-19.8l25.2,18c-10.8,21.6-33.1,33.8-59.7,33.8-42.8,0-69.4-32-69.4-81.3ZM2212,523.5c0-57.2,43.8-106.5,96-106.5s92,46.4,92,112.6h-151.3c1.1,37,25.5,66.9,66.8,66.9s45.3-13.3,55-36l27.3,15.5c-14.4,31.3-42.8,52.1-82.3,52.1-60.4,0-103.5-47.8-103.5-104.7ZM2249.1,503.7h115c-3.6-30.9-25.2-57.5-57.5-57.5s-53.6,26.6-57.5,57.5Z"/></g><path class="lo1" d="M788.3,431.9c-5.1-11.2-13.1-3.8-16.1,4.4-2.3,5.4-5.2,9.8-9.4,14.2-8.1,8.5-23.4,20.7-34.9,36.3-12.3,15.1-21,36.6-33.9,48.6-5.8,5.2-19.1,10.2-17.4-1.1,1.3-9.5,7.1-19.3,13.3-30.9,68.5-110.2-71.7-232-168.8-142.4-19.5,18.6-32,44.4-34.3,70.8-1.8,19.3,1.3,38.8,9.2,56.4,5.6,13.3,26,42.3,19.5,51.9-11.8,5.5-22.9-14.4-30.9-27.3-5.8-9.4-10.4-17.2-17.1-25.7-7.9-11-27-29.6-31.1-32.5-5.8-4.4-11.3-10.6-14.2-17.8-4.2-9.8-3-18.4-5.7-20.2-.7-.6-1.6-.5-2.4,0-8.3,5-12.9,27.6-7.1,39.2,5.5,14.8,17,23.7,28,34.2,8.8,8.1,17,18.4,23.4,28.9,15.6,25.1,29.4,48.1,55.7,47.1,11.2-.2,23.4-4.9,27-16.3,9.8-36.6-27.9-67.5-29.4-103.2-.7-57.3,47.2-102.3,103.8-89.2,43.2,7.7,78.2,55.2,65.5,106-7,29.2-39.3,58.9-24.2,90,10,17,37.3,18,57.8-3.9,6.1-6.5,10.6-13.7,15.3-21,7.2-11,13.5-22.7,22.2-32,12.5-12.2,45.8-36.5,36.9-64l-.2-.6h0Z"/><path class="lo1" d="M650.9,456c-3.6,8.4-10.4,1.1-23.4,2.1-2.6.2-23.1,8.4-22.3-12,1.6-38.2,60.9-25.6,45.7,10Z"/><path class="lo1" d="M564.2,422.1c26.7,0,31.4,37.2,13.2,38-2.1.1-4.5-1-11.1-2-12.2-1.8-19.8,6.4-23.3-1.7-6.1-14.1-.5-31.2,21.2-34.3h0Z"/><path class="lo1" d="M611.3,618.7c.5-6.1,1.8-10.1,4.3-10.6,3.1-.7,6.5,8.7,8,11.5,32.6,61.7,70,.8,109.6,9.3,12.2,2.6,13.8,5.2,22.4,8.9,13.1,5.6,40.3,2.4,20.1,13.8-14,8.8-31.2-3.4-42.9-4-16.3-.8-23.4,5.4-36.8,13-46.5,26.4-87.6-7.7-84.7-41.9ZM640.8,586.4c-1.7-11.5,42.7,37.8,88.9-9.3,41.1-41.9,75.4,6.4,63.2,3.3-12.3-3.1-35.6,1.6-55.2,19.3-28.5,25.6-90.4,31.2-96.9-13.2h0ZM584.1,618.7c-.5-6.1-1.8-10.1-4.3-10.6-3.1-.7-6.5,8.7-8,11.5-32.6,61.7-70,.8-109.6,9.3-12.2,2.6-13.8,5.2-22.4,8.9-13,5.5-40.3,2.4-20.1,13.8,14,8.8,31.2-3.4,42.9-4,16.3-.8,23.4,5.4,36.8,13,46.5,26.4,87.6-7.7,84.7-41.9ZM554.6,586.4c1.7-11.5-42.7,37.8-88.9-9.3-41.1-41.9-75.4,6.4-63.2,3.3,12.3-3.1,35.6,1.6,55.2,19.3,28.5,25.6,90.4,31.2,96.9-13.2h0Z"/><path class="lo1" d="M618.6,479c-4.2,1.7-10.9,3.6-21,3.6s-16.6-1.9-20.8-3.6c-2.1-.8-3.5,2.8-2.1,5.1,10.2,16.7,23,16,23,16,0,0,12.9.7,23.1-16,1.4-2.3,0-5.9-2.1-5.1h0Z"/></svg>
+                <div style="height: 22px; width: 1px; background: rgba(255,255,255,0.2);"></div>
+                <span style="color: rgba(255,255,255,0.6); font-size: 0.75rem; font-weight: 500;">Grocery Margin Defense Calculator</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.75rem;" class="no-print">
+                <button onclick="toggleHalf()" id="btnHalf" style="padding: 0.4rem 0.85rem; border-radius: 8px; font-size: 0.7rem; font-weight: 600; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); cursor: pointer;">Even at 50%</button>
+                <button onclick="clearAll()" style="padding: 0.4rem 0.85rem; border-radius: 8px; font-size: 0.7rem; font-weight: 600; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); cursor: pointer;">Clear All</button>
+                <button onclick="downloadCSV()" style="padding: 0.4rem 0.85rem; border-radius: 8px; font-size: 0.7rem; font-weight: 600; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); cursor: pointer;">⬇ CSV</button>
+            </div>
+        </div>
+    </header>
+
+    <main style="max-width: 1240px; margin: 0 auto; padding: 1.5rem 1.25rem;">
+
+        <!-- SOLUTION PATH -->
+        <div class="card" style="margin-bottom: 1rem;">
+            <div style="padding: 0.85rem 1.25rem; border-bottom: 1px solid var(--ott-border);">
+                <h2 style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ott-text-secondary);">🛒 Solution Path</h2>
+            </div>
+            <div class="path-grid" style="padding: 1rem 1.25rem; display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.6rem;">
+                <button class="path-btn active" onclick="setPath(1)" id="pathBtn1"><div class="path-label">Path 1</div><div class="path-name">Core AP Only</div><div class="path-formulas">F2 F3 F5 F6</div></button>
+                <button class="path-btn" onclick="setPath(2)" id="pathBtn2"><div class="path-label">Path 2</div><div class="path-name">Core + Item Validation</div><div class="path-formulas">F1–F6 (all active)</div></button>
+                <button class="path-btn" onclick="setPath(3)" id="pathBtn3"><div class="path-label">Path 3</div><div class="path-name">Core + DSD Receiver</div><div class="path-formulas">F1 F2 F3 F5 F6</div></button>
+                <button class="path-btn" onclick="setPath(4)" id="pathBtn4"><div class="path-label">Path 4</div><div class="path-name">Core + DSD + IV</div><div class="path-formulas">F1–F6 (all active, full)</div></button>
+            </div>
+        </div>
+
+        <!-- GLOBAL INPUTS -->
+        <div class="card" style="margin-bottom: 1rem;">
+            <div style="padding: 0.85rem 1.25rem; border-bottom: 1px solid var(--ott-border); display: flex; align-items: center; justify-content: space-between;">
+                <h2 style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ott-text-secondary);">Global Inputs</h2>
+                <div style="font-size: 0.72rem; color: var(--ott-text-muted);">Annual Volume: <strong class="mono" id="dispVolume" style="color: var(--ott-text);">0</strong></div>
+            </div>
+            <div style="padding: 1rem 1.25rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 0.85rem;">
+                <div><label class="input-label">Stores</label><input type="number" id="numStores" class="input-field" placeholder="—" min="0" oninput="calc()"></div>
+                <div><label class="input-label">Invoices / Store / Wk</label><input type="number" id="invPerStoreWk" class="input-field" placeholder="100" min="0" oninput="calc()"><span class="benchmark">30–500</span></div>
+                <div style="position:relative"><label class="input-label">AP Hourly Rate</label><span class="input-prefix">$</span><input type="number" id="apRate" class="input-field input-with-prefix" placeholder="28" min="0" oninput="calc()"><span class="benchmark">$18–$45</span></div>
+                <div style="position:relative"><label class="input-label">Net Margin</label><input type="number" id="netMargin" class="input-field input-with-suffix" placeholder="2.0" step="0.1" min="0" oninput="calc()"><span class="input-suffix">%</span><span class="benchmark">0.5%–5%</span></div>
+                <div style="position:relative"><label class="input-label">Ottimate Annual Cost</label><span class="input-prefix">$</span><input type="number" id="ottCost" class="input-field input-with-prefix" placeholder="0" min="0" oninput="calc()"></div>
+                <div style="position:relative"><label class="input-label">Onboarding Cost</label><span class="input-prefix">$</span><input type="number" id="onboardCost" class="input-field input-with-prefix" placeholder="0" min="0" oninput="calc()"></div>
+                <div><label class="input-label">Contract Years</label><input type="number" id="contractYrs" class="input-field" placeholder="1" min="1" max="3" oninput="calc()"><span class="benchmark">1–3</span></div>
+            </div>
+            <!-- Spend helper -->
+            <div style="padding: 0 1.25rem 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                <button onclick="document.getElementById('spendHelper').style.display=document.getElementById('spendHelper').style.display==='none'?'flex':'none'" style="font-size: 0.7rem; color: var(--ott-cta); background: none; border: none; cursor: pointer; font-weight: 600;">💡 Don't know annual vendor spend? →</button>
+                <div id="spendHelper" style="display: none; align-items: center; gap: 0.5rem; font-size: 0.72rem; color: var(--ott-text-muted);">
+                    <span>Weekly rev/store:</span>
+                    <span style="position: relative; display: inline-block;"><span style="position: absolute; left: 6px; top: 50%; transform: translateY(-50%); color: var(--ott-text-muted); font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;">$</span><input type="number" id="weeklyRev" style="width: 100px; padding: 0.3rem 0.3rem 0.3rem 1.2rem; border: 1px solid var(--ott-border); border-radius: 6px; font-size: 0.8rem; font-family: 'JetBrains Mono', monospace;" oninput="estimateSpend()"></span>
+                    <span>≈ Annual Spend: <strong class="mono" id="estSpend">$0</strong></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- MAIN GRID -->
+        <div class="main-grid" style="display: grid; grid-template-columns: 1fr 360px; gap: 1rem; align-items: start;">
+            <div id="formulaColumn">
+
+                <!-- F1: Pricing Variance Recovery -->
+                <div class="accordion" id="acc-f1">
+                    <div class="accordion-header" onclick="toggleAcc('f1')">
+                        <div class="accordion-toggle"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></div>
+                        <div class="accordion-number" style="background: var(--ott-fresh-soft); color: var(--ott-ocean);">F1</div>
+                        <div class="accordion-title"><h3>Pricing Variance Recovery (PVR)</h3><p id="f1-sub">The Penny Gap</p></div>
+                        <div class="accordion-result" id="res-f1">$0</div>
+                    </div>
+                    <div class="accordion-body"><div class="accordion-content" style="padding-top: 1rem;">
+                        <!-- IV inputs -->
+                        <div id="f1-iv-section">
+                            <div style="font-size: 0.68rem; font-weight: 700; text-transform: uppercase; color: var(--ott-text-muted); margin-bottom: 0.5rem;">Item Validation Inputs</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 0.75rem;">
+                                <div style="position:relative"><label class="input-label">Annual Vendor Spend</label><span class="input-prefix">$</span><input type="number" id="vendorSpend" class="input-field input-with-prefix" placeholder="0" min="0" oninput="calc()"></div>
+                                <div style="position:relative"><label class="input-label">Price Error Rate</label><input type="number" id="priceErrorRate" class="input-field input-with-suffix" placeholder="1.2" step="0.1" min="0" oninput="calc()"><span class="input-suffix">%</span><span class="benchmark">0.5%–3%</span></div>
+                                <div style="position:relative"><label class="input-label">IV Catch Rate</label><input type="number" id="ivCatchRate" class="input-field input-with-suffix" placeholder="75" step="1" min="0" oninput="calc()"><span class="input-suffix">%</span><span class="benchmark">60%–90%</span></div>
+                                <div><label class="input-label">Accuracy Adj.</label><input type="number" id="accuracyAdj" class="input-field" placeholder="0.85" step="0.01" min="0" max="1" oninput="calc()"><span class="benchmark">0.70–0.95</span></div>
+                            </div>
+                        </div>
+                        <!-- DSD inputs -->
+                        <div id="f1-dsd-section" style="margin-top: 0.75rem;">
+                            <div style="font-size: 0.68rem; font-weight: 700; text-transform: uppercase; color: var(--ott-text-muted); margin-bottom: 0.5rem;">DSD Receiver Match Inputs</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem;">
+                                <div style="position:relative"><label class="input-label">Annual DSD Spend</label><span class="input-prefix">$</span><input type="number" id="dsdSpend" class="input-field input-with-prefix" placeholder="0" min="0" oninput="calc()"></div>
+                                <div style="position:relative"><label class="input-label">Discrepancy Rate</label><input type="number" id="dsdDiscrepRate" class="input-field input-with-suffix" placeholder="4.0" step="0.1" min="0" oninput="calc()"><span class="input-suffix">%</span><span class="benchmark">2%–8%</span></div>
+                                <div style="position:relative"><label class="input-label">DSD Catch Rate</label><input type="number" id="dsdCatchRate" class="input-field input-with-suffix" placeholder="85" step="1" min="0" oninput="calc()"><span class="input-suffix">%</span><span class="benchmark">70%–95%</span></div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 0.75rem; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem;">
+                            <div class="result-mini" id="f1-iv-result" style="display:none"><div class="rm-label">IV Recovery</div><div class="rm-value" id="f1iv">$0</div></div>
+                            <div class="result-mini" id="f1-dsd-result" style="display:none"><div class="rm-label">DSD Recovery</div><div class="rm-value" id="f1dsd">$0</div></div>
+                            <div class="result-highlight"><div class="rh-label">Total PVR</div><div class="rh-value" id="detail-f1">$0</div></div>
+                        </div>
+                        <div style="margin-top: 0.5rem; padding: 0.5rem 0.75rem; background: #0a1628; border-radius: 8px; color: white; display: flex; align-items: center; justify-content: space-between;">
+                            <span style="font-size: 0.68rem; opacity: 0.5;">Revenue equivalent at <span id="f1MarginPct">2.0</span>% margin:</span>
+                            <span class="mono" style="font-size: 0.95rem; font-weight: 700; color: var(--ott-fresh);" id="f1RevEquiv">$0</span>
+                        </div>
+                    </div></div>
+                    <div class="inactive-note" id="f1-inactive" style="display:none;">Not available on Core AP Only — requires Item Validation or DSD Receiver.</div>
+                </div>
+
+                <!-- F2: Net Invoice Processing Labor -->
+                <div class="accordion" id="acc-f2">
+                    <div class="accordion-header" onclick="toggleAcc('f2')">
+                        <div class="accordion-toggle"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></div>
+                        <div class="accordion-number" style="background: var(--ott-ocean-light); color: var(--ott-ocean);">F2</div>
+                        <div class="accordion-title"><h3>Net Invoice Processing Labor (NIPLI)</h3><p>The honest labor formula — savings minus transition costs</p></div>
+                        <div class="accordion-result" id="res-f2">$0</div>
+                    </div>
+                    <div class="accordion-body"><div class="accordion-content" style="padding-top: 1rem;">
+                        <div style="font-size: 0.68rem; font-weight: 700; text-transform: uppercase; color: var(--ott-text-muted); margin-bottom: 0.5rem;">Component A: Automation Savings</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem;">
+                            <div><label class="input-label">Min / Invoice (Manual)</label><input type="number" id="minManual" class="input-field" placeholder="12" min="0" oninput="calc()"><span class="benchmark">5–25 min</span></div>
+                            <div style="position:relative"><label class="input-label">Auto-Process Rate</label><input type="number" id="autoRate" class="input-field input-with-suffix" placeholder="85" step="1" min="0" oninput="calc()"><span class="input-suffix">%</span><span class="benchmark">70%–95%</span></div>
+                            <div><label class="input-label">Min / Invoice (Auto)</label><input type="number" id="minAuto" class="input-field" placeholder="2" min="0" oninput="calc()"><span class="benchmark">1–4 min</span></div>
+                        </div>
+                        <div style="font-size: 0.68rem; font-weight: 700; text-transform: uppercase; color: var(--ott-text-muted); margin: 0.75rem 0 0.5rem;">Component B: Exception Handling</div>
+                        <div style="display: grid; grid-template-columns: 1fr; gap: 0.75rem; max-width: 200px;">
+                            <div><label class="input-label">Min / Exception</label><input type="number" id="minException" class="input-field" placeholder="8" min="0" oninput="calc()"><span class="benchmark">5–15 min</span></div>
+                        </div>
+                        <div id="f2compC" style="margin-top: 0.75rem;">
+                            <div style="font-size: 0.68rem; font-weight: 700; text-transform: uppercase; color: var(--ott-text-muted); margin-bottom: 0.5rem;">Component C: Line-Item Transition</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem;">
+                                <div>
+                                    <label class="input-label">Current Coding Practice</label>
+                                    <select id="codingPractice" class="input-field" onchange="calc()" style="font-family: 'Hanken Grotesk', sans-serif; font-size: 0.82rem;">
+                                        <option value="summary">Summary splits</option>
+                                        <option value="mixed">Mixed</option>
+                                        <option value="lineitem">Already line-item</option>
+                                    </select>
+                                </div>
+                                <div><label class="input-label">Initial Mapping Hours</label><input type="number" id="mappingHrs" class="input-field" placeholder="40" min="0" oninput="calc()"><span class="benchmark">20–120 hrs</span></div>
+                                <div><label class="input-label">Ongoing Coding Hrs / Wk</label><input type="number" id="ongoingCodingHrs" class="input-field" placeholder="1.5" step="0.5" min="0" oninput="calc()"><span class="benchmark">0.5–4 hrs</span></div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+                            <div class="year-toggle"><button class="active" onclick="setYear(1,this)">Year 1</button><button onclick="setYear(2,this)">Year 2+</button></div>
+                        </div>
+                        <div style="margin-top: 0.5rem; display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 0.5rem;">
+                            <div class="result-mini"><div class="rm-label">A: Savings</div><div class="rm-value" id="f2a">$0</div></div>
+                            <div class="result-mini"><div class="rm-label">B: Exceptions</div><div class="rm-value" style="color: var(--ott-warm);" id="f2b">−$0</div></div>
+                            <div class="result-mini" id="f2c-box"><div class="rm-label">C: Transition</div><div class="rm-value" style="color: var(--ott-warm);" id="f2c">−$0</div></div>
+                            <div class="result-highlight"><div class="rh-label" id="f2YearLabel">Net NIPLI (Yr 1)</div><div class="rh-value" id="detail-f2">$0</div></div>
+                        </div>
+                    </div></div>
+                </div>
+
+                <!-- F3: Store-Level Ops -->
+                <div class="accordion" id="acc-f3">
+                    <div class="accordion-header" onclick="toggleAcc('f3')">
+                        <div class="accordion-toggle"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></div>
+                        <div class="accordion-number" style="background: #fef3c7; color: #92400e;">F3</div>
+                        <div class="accordion-title"><h3>Store-Level Ops Recovery (SOTR)</h3><p>The GM offload — time back at store level</p></div>
+                        <div class="accordion-result" id="res-f3">$0</div>
+                    </div>
+                    <div class="accordion-body"><div class="accordion-content" style="padding-top: 1rem;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                            <div><label class="input-label">Store Ops Hours / Week</label><input type="number" id="storeOpsHrs" class="input-field" placeholder="5" min="0" oninput="calc()"><span class="benchmark">2–12 hrs</span></div>
+                            <div style="position:relative"><label class="input-label">Effective GM Hourly Rate</label><span class="input-prefix">$</span><input type="number" id="gmRate" class="input-field input-with-prefix" placeholder="35" min="0" oninput="calc()"><span class="benchmark">$22–$55</span></div>
+                        </div>
+                        <div style="margin-top: 0.75rem;"><div class="result-highlight"><div class="rh-label">Annual Store-Level Recovery</div><div class="rh-value" id="detail-f3">$0</div></div></div>
+                    </div></div>
+                </div>
+
+                <!-- F4: Vendor Credit -->
+                <div class="accordion" id="acc-f4">
+                    <div class="accordion-header" onclick="toggleAcc('f4')">
+                        <div class="accordion-toggle"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></div>
+                        <div class="accordion-number" style="background: var(--ott-warm-soft); color: var(--ott-warm);">F4</div>
+                        <div class="accordion-title"><h3>Vendor Credit & Allowance Recovery (VCAR)</h3><p>Uncaptured credits, stales, short-ships</p></div>
+                        <div class="accordion-result" id="res-f4">$0</div>
+                    </div>
+                    <div class="accordion-body"><div class="accordion-content" style="padding-top: 1rem;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                            <div style="position:relative"><label class="input-label">Uncaptured Credit Rate</label><input type="number" id="creditRate" class="input-field input-with-suffix" placeholder="0.7" step="0.1" min="0" oninput="calc()"><span class="input-suffix">%</span><span class="benchmark">0.3%–1.5%</span></div>
+                            <div style="position:relative"><label class="input-label">Credit Catch Improvement</label><input type="number" id="creditImprove" class="input-field input-with-suffix" placeholder="50" step="5" min="0" oninput="calc()"><span class="input-suffix">%</span><span class="benchmark">30%–70%</span></div>
+                        </div>
+                        <div style="margin-top: 0.75rem;"><div class="result-highlight"><div class="rh-label">Annual Credit Recovery</div><div class="rh-value" id="detail-f4">$0</div></div></div>
+                    </div></div>
+                    <div class="inactive-note" id="f4-inactive" style="display:none;">Requires Item Validation — not available on this path.</div>
+                </div>
+
+                <!-- F5: Month-End Close -->
+                <div class="accordion" id="acc-f5">
+                    <div class="accordion-header" onclick="toggleAcc('f5')">
+                        <div class="accordion-toggle"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></div>
+                        <div class="accordion-number" style="background: #e0e7ff; color: #4338ca;">F5</div>
+                        <div class="accordion-title"><h3>Month-End Close Efficiency (MECEG)</h3><p>Overtime + reconciliation reduction</p></div>
+                        <div class="accordion-result" id="res-f5">$0</div>
+                    </div>
+                    <div class="accordion-body"><div class="accordion-content" style="padding-top: 1rem;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem;">
+                            <div><label class="input-label">OT Hrs / Close (Current)</label><input type="number" id="closeOTCur" class="input-field" placeholder="12" min="0" oninput="calc()"><span class="benchmark">4–40</span></div>
+                            <div><label class="input-label">OT Hrs / Close (Auto)</label><input type="number" id="closeOTAuto" class="input-field" placeholder="3" min="0" oninput="calc()"><span class="benchmark">0–10</span></div>
+                            <div style="position:relative"><label class="input-label">OT Hourly Rate</label><span class="input-prefix">$</span><input type="number" id="otRate" class="input-field input-with-prefix" placeholder="42" min="0" oninput="calc()"><span class="benchmark">$27–$68</span></div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.5rem;">
+                            <div><label class="input-label">Recon Hrs / Mo (Current)</label><input type="number" id="reconCur" class="input-field" placeholder="20" min="0" oninput="calc()"><span class="benchmark">8–60</span></div>
+                            <div><label class="input-label">Recon Hrs / Mo (Auto)</label><input type="number" id="reconAuto" class="input-field" placeholder="6" min="0" oninput="calc()"><span class="benchmark">2–15</span></div>
+                        </div>
+                        <div style="margin-top: 0.75rem;"><div class="result-highlight"><div class="rh-label">Annual Close Efficiency</div><div class="rh-value" id="detail-f5">$0</div></div></div>
+                    </div></div>
+                </div>
+
+                <!-- F6: Scalability -->
+                <div class="accordion" id="acc-f6">
+                    <div class="accordion-header" onclick="toggleAcc('f6')">
+                        <div class="accordion-toggle"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></div>
+                        <div class="accordion-number" style="background: #ede9fe; color: #6d28d9;">F6</div>
+                        <div class="accordion-title"><h3>Multi-Store Scalability (MSSS)</h3><p>Avoided AP headcount per new store</p></div>
+                        <div class="accordion-result" id="res-f6">$0</div>
+                    </div>
+                    <div class="accordion-body"><div class="accordion-content" style="padding-top: 1rem;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem;">
+                            <div><label class="input-label">Avoided FTE / New Store</label><input type="number" id="avoidedFTE" class="input-field" placeholder="0.25" step="0.05" min="0" oninput="calc()"><span class="benchmark">0.15–0.50</span></div>
+                            <div><label class="input-label">New Stores / Year</label><input type="number" id="newStores" class="input-field" placeholder="0" min="0" oninput="calc()"></div>
+                            <div style="position:relative"><label class="input-label">Annual AP FTE Cost</label><span class="input-prefix">$</span><input type="number" id="fteCost" class="input-field input-with-prefix" placeholder="52000" min="0" oninput="calc()"><span class="benchmark">$38K–$75K</span></div>
+                        </div>
+                        <div style="margin-top: 0.75rem;"><div class="result-highlight"><div class="rh-label">Annual Scalability Savings</div><div class="rh-value" id="detail-f6">$0</div></div></div>
+                    </div></div>
+                </div>
+
+                <!-- Time-to-Value -->
+                <div class="card" style="margin-bottom: 0.85rem;">
+                    <div style="padding: 0.85rem 1.25rem; border-bottom: 1px solid var(--ott-border);">
+                        <h2 style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ott-text-secondary);">⏱ Time-to-Value Qualifier</h2>
+                    </div>
+                    <div style="padding: 1rem 1.25rem; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem;">
+                        <div>
+                            <label class="input-label">% Digital PDFs</label>
+                            <select id="ttvPdf" class="input-field" onchange="calcTTV()" style="font-family:'Hanken Grotesk',sans-serif;font-size:0.82rem;"><option value="standard">&gt;70%</option><option value="enhanced">40–70%</option><option value="complex">&lt;40%</option></select>
+                        </div>
+                        <div>
+                            <label class="input-label">Avg Line Items / Invoice</label>
+                            <select id="ttvLines" class="input-field" onchange="calcTTV()" style="font-family:'Hanken Grotesk',sans-serif;font-size:0.82rem;"><option value="standard">&lt;50</option><option value="enhanced">50–100</option><option value="complex">&gt;100</option></select>
+                        </div>
+                        <div>
+                            <label class="input-label">Data Quality</label>
+                            <select id="ttvData" class="input-field" onchange="calcTTV()" style="font-family:'Hanken Grotesk',sans-serif;font-size:0.82rem;"><option value="standard">Clean</option><option value="enhanced">Some cleanup</option><option value="complex">Major cleanup</option></select>
+                        </div>
+                    </div>
+                    <div style="padding: 0 1.25rem 1rem; display: flex; align-items: center; gap: 0.75rem;">
+                        <div style="font-size: 0.78rem; color: var(--ott-text-secondary);">Profile: <strong id="ttvProfile" style="color: var(--ott-ocean);">Standard</strong></div>
+                        <div style="font-size: 0.72rem; color: var(--ott-text-muted);" id="ttvDays">ROI positive in 30–60 days</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SIDEBAR -->
+            <div style="position: sticky; top: 80px; display: flex; flex-direction: column; gap: 1rem;">
+                <div class="hero-stat" id="heroStat">
+                    <div class="label">Total Margin Defense Value (TMDV) <span class="half-badge" id="halfBadge" style="display:none;">50% Mode</span></div>
+                    <div class="value" id="heroTMDV">$0</div>
+                    <div class="sub">annual recoverable value</div>
+                </div>
+
+                <div class="inaction-banner">
+                    <div>
+                        <div style="font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #b85c4a; margin-bottom: 0.15rem;">Daily Cost of Inaction</div>
+                        <div class="inaction-number" id="dailyCost">$0</div>
+                    </div>
+                    <div style="font-size: 0.78rem; color: #8b4332; line-height: 1.4;"><strong id="monthlyCost">$0</strong>/mo your margin absorbs.</div>
+                </div>
+
+                <div class="multiplier-box">
+                    <div class="label">Net Profit Multiplier</div>
+                    <div class="value" id="revEquiv">$0</div>
+                    <div class="sub">equivalent new revenue at <span id="sideMarginPct">2.0</span>% margins</div>
+                </div>
+
+                <div class="card">
+                    <div style="padding: 0.85rem 1rem; border-bottom: 1px solid var(--ott-border);"><h2 style="font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ott-text-secondary);">TMDV Breakdown</h2></div>
+                    <div style="padding: 0.85rem 1rem;">
+                        <div class="summary-row" id="row-f1"><div class="s-label">F1: PVR</div><div class="s-value" id="sum-f1">$0</div></div>
+                        <div class="summary-row"><div class="s-label">F2: NIPLI</div><div class="s-value" id="sum-f2">$0</div></div>
+                        <div class="summary-row"><div class="s-label">F3: SOTR</div><div class="s-value" id="sum-f3">$0</div></div>
+                        <div class="summary-row" id="row-f4"><div class="s-label">F4: VCAR</div><div class="s-value" id="sum-f4">$0</div></div>
+                        <div class="summary-row"><div class="s-label">F5: MECEG</div><div class="s-value" id="sum-f5">$0</div></div>
+                        <div class="summary-row"><div class="s-label">F6: MSSS</div><div class="s-value" id="sum-f6">$0</div></div>
+                        <div class="summary-row total-row"><div class="s-label">TMDV Total</div><div class="s-value" id="sum-tmdv">$0</div></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div style="padding: 0.85rem 1rem; border-bottom: 1px solid var(--ott-border);"><h2 style="font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ott-text-secondary);">ROI Metrics</h2></div>
+                    <div style="padding: 0.85rem 1rem;">
+                        <div class="summary-row"><div class="s-label">Ottimate Investment</div><div class="s-value" id="sum-inv">$0</div></div>
+                        <div class="summary-row"><div class="s-label">Annualized Onboarding</div><div class="s-value" id="sum-onboard">$0</div></div>
+                        <div class="summary-row"><div class="s-label">Net Annual Value</div><div class="s-value" style="color: var(--ott-fresh);" id="sum-nav">$0</div></div>
+                        <div class="summary-row"><div class="s-label">Payback Period</div><div class="s-value" id="sum-payback">— mo</div></div>
+                        <div class="summary-row" style="border-bottom:none"><div class="s-label">Time-to-Value</div><div class="s-value" id="sum-ttv">Standard</div></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div style="padding: 0.85rem 1rem; border-bottom: 1px solid var(--ott-border);"><h2 style="font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ott-text-secondary);">📊 Breakdown</h2></div>
+                    <div style="padding: 0.85rem 1rem;"><div class="chart-container"><canvas id="tmdvChart"></canvas></div></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer style="text-align: center; padding: 1.25rem; font-size: 0.7rem; color: var(--ott-text-muted);">Ottimate Grocery Margin Defense Calculator — Adjust inputs to match prospect data. All fields start empty to prevent data leakage.</footer>
+
+    <script>
+    let chartInstance = null, currentPath = 1, halfMode = false, displayYear = 1, lastCalc = {};
+    const $ = id => document.getElementById(id);
+    const val = id => { const v = parseFloat($(id)?.value); return isNaN(v) ? 0 : v; };
+    const fmt = n => '$' + Math.round(n).toLocaleString('en-US');
+    const fmtDec = n => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    function toggleAcc(id) { $(`acc-${id}`).classList.toggle('active'); }
+    function clearAll() { document.querySelectorAll('.input-field').forEach(el => { if(el.tagName==='SELECT') el.selectedIndex=0; else el.value=''; }); halfMode=false; $('btnHalf').style.background='rgba(255,255,255,0.08)'; $('halfBadge').style.display='none'; calc(); calcTTV(); }
+
+    // Path selection
+    const pathMatrix = { 1:{f1:false,f4:false}, 2:{f1:'iv',f4:true}, 3:{f1:'dsd',f4:false}, 4:{f1:'full',f4:true} };
+    function setPath(p) {
+        currentPath = p;
+        [1,2,3,4].forEach(i => $(`pathBtn${i}`).classList.toggle('active', i===p));
+        const pm = pathMatrix[p];
+        // F1
+        const f1el = $('acc-f1');
+        if (!pm.f1) { f1el.classList.add('inactive'); f1el.classList.remove('active'); $('f1-inactive').style.display='block'; }
+        else { f1el.classList.remove('inactive'); $('f1-inactive').style.display='none'; }
+        $('f1-iv-section').style.display = (pm.f1==='iv'||pm.f1==='full') ? 'block' : 'none';
+        $('f1-dsd-section').style.display = (pm.f1==='dsd'||pm.f1==='full') ? 'block' : 'none';
+        $('f1-iv-result').style.display = pm.f1==='full' ? 'block' : 'none';
+        $('f1-dsd-result').style.display = pm.f1==='full' ? 'block' : 'none';
+        $('f1-sub').textContent = pm.f1==='iv'?'Item Validation variant':pm.f1==='dsd'?'DSD Receiver variant':pm.f1==='full'?'Combined IV + DSD':'The Penny Gap';
+        // F4
+        const f4el = $('acc-f4');
+        if (!pm.f4) { f4el.classList.add('inactive'); f4el.classList.remove('active'); $('f4-inactive').style.display='block'; }
+        else { f4el.classList.remove('inactive'); $('f4-inactive').style.display='none'; }
+        // F2 Component C
+        $('f2compC').style.display = p >= 2 ? 'block' : 'none';
+        // Summary rows
+        $('row-f1').style.display = pm.f1 ? 'flex' : 'none';
+        $('row-f4').style.display = pm.f4 ? 'flex' : 'none';
+        calc();
+    }
+
+    function setYear(y, btn) {
+        displayYear = y;
+        btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        calc();
+    }
+
+    function toggleHalf() {
+        halfMode = !halfMode;
+        $('btnHalf').style.background = halfMode ? 'rgba(254,243,199,0.3)' : 'rgba(255,255,255,0.08)';
+        $('halfBadge').style.display = halfMode ? 'inline-block' : 'none';
+        calc();
+    }
+
+    function estimateSpend() {
+        const rev = val('weeklyRev'), stores = val('numStores');
+        $('estSpend').textContent = fmt(rev * stores * 52 * 0.65);
+    }
+
+    function calcTTV() {
+        const scores = [$('ttvPdf').value, $('ttvLines').value, $('ttvData').value];
+        const worst = scores.includes('complex') ? 'complex' : scores.includes('enhanced') ? 'enhanced' : 'standard';
+        const labels = { standard:'Standard', enhanced:'Enhanced', complex:'Complex' };
+        const days = { standard:'30–60 days', enhanced:'60–90 days', complex:'90–180 days' };
+        $('ttvProfile').textContent = labels[worst];
+        $('ttvDays').textContent = 'ROI positive in ' + days[worst];
+        $('sum-ttv').textContent = labels[worst];
+    }
+
+    function calc() {
+        const pm = pathMatrix[currentPath];
+        const stores = val('numStores'), ipw = val('invPerStoreWk'), apRate = val('apRate');
+        const margin = val('netMargin') / 100, ottCost = val('ottCost'), onboard = val('onboardCost'), yrs = Math.max(val('contractYrs'),1);
+        const vol = stores * ipw * 52;
+        $('dispVolume').textContent = vol.toLocaleString('en-US');
+        const hm = halfMode ? 0.5 : 1;
+
+        // F1
+        let f1 = 0, f1iv = 0, f1dsd = 0;
+        if (pm.f1 === 'iv' || pm.f1 === 'full') {
+            const vs = val('vendorSpend'), per = val('priceErrorRate')/100, cr = val('ivCatchRate')/100, aa = val('accuracyAdj');
+            const ivSpend = pm.f1==='full' ? Math.max(vs - val('dsdSpend'), 0) : vs;
+            f1iv = ivSpend * per * cr * aa;
+        }
+        if (pm.f1 === 'dsd' || pm.f1 === 'full') {
+            f1dsd = val('dsdSpend') * (val('dsdDiscrepRate')/100) * (val('dsdCatchRate')/100);
+        }
+        f1 = (f1iv + f1dsd) * hm;
+        $('f1iv').textContent = fmt(f1iv * hm);
+        $('f1dsd').textContent = fmt(f1dsd * hm);
+
+        // F2
+        const minMan = val('minManual'), autoR = val('autoRate')/100, minA = val('minAuto'), minEx = val('minException');
+        const compA = (vol * minMan * (apRate/60)) - (vol * autoR * minA * (apRate/60));
+        const compB = vol * (1 - autoR) * minEx * (apRate/60);
+        const codingP = $('codingPractice').value;
+        let compC_y1 = 0, compC_y2 = 0;
+        if (currentPath >= 2 && codingP !== 'lineitem') {
+            compC_y1 = val('mappingHrs') * apRate + val('ongoingCodingHrs') * apRate * 52;
+            compC_y2 = val('ongoingCodingHrs') * apRate * 52;
+        }
+        const f2_y1 = (compA - compB - compC_y1) * hm;
+        const f2_y2 = (compA - compB - compC_y2) * hm;
+        const f2 = displayYear === 1 ? f2_y1 : f2_y2;
+
+        // F3
+        const f3 = (stores * val('storeOpsHrs') * 52 * val('gmRate')) * hm;
+
+        // F4
+        let f4 = 0;
+        if (pm.f4) {
+            const vs4 = val('vendorSpend');
+            f4 = (vs4 * (val('creditRate')/100) * (val('creditImprove')/100)) * hm;
+        }
+
+        // F5
+        const otSavings = (val('closeOTCur') - val('closeOTAuto')) * 12 * val('otRate');
+        const reconSavings = (val('reconCur') - val('reconAuto')) * 12 * apRate;
+        const f5 = Math.max(otSavings + reconSavings, 0) * hm;
+
+        // F6
+        const f6 = (val('avoidedFTE') * val('newStores') * val('fteCost')) * hm;
+
+        // TMDV
+        const tmdv = f1 + f2 + f3 + f4 + f5 + f6;
+        const annOnboard = onboard / yrs;
+        const nav = tmdv - ottCost - annOnboard;
+        const payback = tmdv > 0 ? ((ottCost + onboard) / (tmdv / 12)) : 0;
+        const daily = tmdv / 260, monthly = tmdv / 12;
+        const revEquiv = margin > 0 ? nav / margin : 0;
+        const f1Rev = margin > 0 ? f1 / margin : 0;
+
+        lastCalc = { stores, vol, apRate, margin, ottCost, onboard, yrs, f1, f1iv: f1iv*hm, f1dsd: f1dsd*hm, f2, f2_y1, f2_y2, compA:compA*hm, compB:compB*hm, compC_y1:compC_y1*hm, compC_y2:compC_y2*hm, f3, f4, f5, f6, tmdv, annOnboard, nav, payback, daily, monthly, revEquiv, f1Rev };
+
+        // UI updates
+        $('res-f1').textContent = fmt(f1);
+        $('detail-f1').textContent = fmt(f1);
+        $('f1MarginPct').textContent = (margin*100).toFixed(1);
+        $('f1RevEquiv').textContent = fmt(f1Rev);
+
+        $('res-f2').textContent = fmt(f2);
+        $('f2a').textContent = fmt(compA*hm);
+        $('f2b').textContent = '−'+fmt(compB*hm);
+        $('f2c').textContent = '−'+fmt(displayYear===1?compC_y1*hm:compC_y2*hm);
+        $('f2YearLabel').textContent = 'Net NIPLI (Yr '+(displayYear===1?'1':'2+')+')';
+        $('detail-f2').textContent = fmt(f2);
+
+        $('res-f3').textContent = fmt(f3); $('detail-f3').textContent = fmt(f3);
+        $('res-f4').textContent = fmt(f4); $('detail-f4').textContent = fmt(f4);
+        $('res-f5').textContent = fmt(f5); $('detail-f5').textContent = fmt(f5);
+        $('res-f6').textContent = fmt(f6); $('detail-f6').textContent = fmt(f6);
+
+        $('heroTMDV').textContent = fmt(tmdv);
+        $('heroStat').style.background = tmdv > 0 ? 'linear-gradient(135deg, #123044, #00426E)' : 'linear-gradient(135deg, #3a3a3a, #555)';
+        $('dailyCost').textContent = fmtDec(Math.max(daily,0));
+        $('monthlyCost').textContent = fmt(Math.max(monthly,0));
+        $('revEquiv').textContent = fmt(revEquiv);
+        $('sideMarginPct').textContent = (margin*100).toFixed(1);
+
+        $('sum-f1').textContent = fmt(f1); $('sum-f2').textContent = fmt(f2);
+        $('sum-f3').textContent = fmt(f3); $('sum-f4').textContent = fmt(f4);
+        $('sum-f5').textContent = fmt(f5); $('sum-f6').textContent = fmt(f6);
+        $('sum-tmdv').textContent = fmt(tmdv);
+        $('sum-inv').textContent = fmt(ottCost); $('sum-onboard').textContent = fmt(annOnboard);
+        $('sum-nav').textContent = fmt(nav);
+        $('sum-payback').textContent = payback > 0 ? payback.toFixed(1)+' mo' : '— mo';
+
+        updateChart();
+    }
+
+    function updateChart() {
+        const c = lastCalc, ctx = $('tmdvChart');
+        if (chartInstance) chartInstance.destroy();
+        const pm = pathMatrix[currentPath];
+        const labels = [], data = [], colors = [];
+        if (pm.f1) { labels.push('PVR'); data.push(Math.max(c.f1||0,0)); colors.push('#03C9A3'); }
+        labels.push('NIPLI','SOTR'); data.push(Math.max(c.f2||0,0), Math.max(c.f3||0,0)); colors.push('#00426E','#f5a623');
+        if (pm.f4) { labels.push('VCAR'); data.push(Math.max(c.f4||0,0)); colors.push('#e85d3a'); }
+        labels.push('MECEG','MSSS'); data.push(Math.max(c.f5||0,0), Math.max(c.f6||0,0)); colors.push('#747BFF','#4338ca');
+        chartInstance = new Chart(ctx, { type:'doughnut', data:{ labels, datasets:[{ data, backgroundColor:colors, borderWidth:2, borderColor:'#fff', hoverOffset:5 }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'55%', plugins:{ legend:{ position:'bottom', labels:{ font:{ family:"'Hanken Grotesk'", size:10 }, padding:8, usePointStyle:true, pointStyleWidth:8 } }, tooltip:{ callbacks:{ label: ctx=>`${ctx.label}: ${fmt(ctx.parsed)}` }, bodyFont:{ family:"'JetBrains Mono'" } } } } });
+    }
+
+    function downloadCSV() {
+        const c = lastCalc, esc = v => { const s=String(v); return s.includes(',')||s.includes('"') ? `"${s.replace(/"/g,'""')}"` : s; };
+        let csv = 'Section,Item,Value,Formula\n';
+        const rows = [
+            ['Global','Stores',c.stores,''],['Global','Annual Volume',c.vol,'stores×inv/wk×52'],['Global','AP Rate',c.apRate,''],
+            ['Global','Net Margin',(c.margin*100).toFixed(1)+'%',''],['Global','Ottimate Cost',c.ottCost,''],['Global','Onboarding',c.onboard,''],
+            ['','','',''],
+            ['F1: PVR','IV Recovery',(c.f1iv||0).toFixed(2),'iv_spend×error%×catch%×accuracy'],
+            ['F1: PVR','DSD Recovery',(c.f1dsd||0).toFixed(2),'dsd_spend×discrep%×catch%'],
+            ['F1: PVR','Total',(c.f1||0).toFixed(2),'IV+DSD'],
+            ['F2: NIPLI','A: Savings',(c.compA||0).toFixed(2),'manual−auto processing'],
+            ['F2: NIPLI','B: Exceptions',(c.compB||0).toFixed(2),'vol×exception%×min×rate'],
+            ['F2: NIPLI','C: Transition (Y1)',(c.compC_y1||0).toFixed(2),'mapping+ongoing'],
+            ['F2: NIPLI','C: Transition (Y2+)',(c.compC_y2||0).toFixed(2),'ongoing only'],
+            ['F2: NIPLI','Net Y1',(c.f2_y1||0).toFixed(2),'A−B−C(Y1)'],['F2: NIPLI','Net Y2+',(c.f2_y2||0).toFixed(2),'A−B−C(Y2)'],
+            ['F3: SOTR','Recovery',(c.f3||0).toFixed(2),'stores×hrs×52×GM rate'],
+            ['F4: VCAR','Recovery',(c.f4||0).toFixed(2),'spend×credit%×improve%'],
+            ['F5: MECEG','Efficiency',(c.f5||0).toFixed(2),'OT savings+recon savings'],
+            ['F6: MSSS','Scalability',(c.f6||0).toFixed(2),'FTE×stores×cost'],
+            ['','','',''],
+            ['TMDV','Total',(c.tmdv||0).toFixed(2),'F1+F2+F3+F4+F5+F6'],
+            ['TMDV','Net Annual Value',(c.nav||0).toFixed(2),'TMDV−invest−onboard'],
+            ['TMDV','Payback',(c.payback||0).toFixed(1)+' mo','(invest+onboard)/(TMDV/12)'],
+            ['TMDV','Revenue Equivalent',(c.revEquiv||0).toFixed(2),'NAV/margin'],
+        ];
+        for (const r of rows) csv += r.map(esc).join(',')+'\n';
+        const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'}), link=document.createElement('a');
+        link.href=URL.createObjectURL(blob); link.download=`ottimate-grocery-roi-${new Date().toISOString().split('T')[0]}.csv`; link.click();
+    }
+
+    // Init
+    setPath(1); calcTTV(); calc();
+    </script>
+</body>
+</html>
